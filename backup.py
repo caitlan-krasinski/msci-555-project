@@ -1,6 +1,3 @@
-import streamlit as st
-import matplotlib.pyplot as plt
-
 # DATA SETUP
 M = 4
 R = 3
@@ -13,20 +10,125 @@ surgery = {1: [[1,2], 5],
             5: [[2,3], 3],
             6: [[1], 8] }
 
-def add_job(surgery_type, pj, wj, mi, J):
-    if not J:
-        J[1] = {'surgery_type': surgery_type,
-                'pj': pj,
-                'wj': wj,
-                'mi': mi}
-    else:
+
+
+# setup: {patient id: {'surgery_type': surgery_id,
+                # 'pj': surgery[surgery_id][1],
+                # 'wj': 0.5,
+                # 'mi': surgery[surgery_id][0]}}
+
+def add_job(surgery_type, pj, wj, mi):
+    if J is not None:
         J[len(J)+1] = {'surgery_type': surgery_type,
                     'pj': pj,
                     'wj': wj,
                     'mi': mi}
-    return J
+        J
+        return J
+    else:
+        J[1] = {'surgery_type': surgery_type,
+                'pj': pj,
+                'wj': wj,
+                'mi': mi}
+        J
+        return J
         
-def order_jobs(J):
+
+# J = {1: {'surgery_type': 1,
+#         'pj': surgery[1][1],
+#         'wj': 0.5,
+#         'mi': surgery[1][0]},
+#     2: {'surgery_type': 2,
+#         'pj': surgery[2][1], 
+#         'wj': 0.1,
+#         'mi': surgery[2][0]},
+#     3: {'surgery_type': 3,
+#         'pj': surgery[3][1],
+#         'wj': 0.8,
+#         'mi': surgery[3][0]},
+#     4: {'surgery_type': 4,
+#         'pj': surgery[4][1],
+#         'wj': 0.3,
+#         'mi': surgery[4][0]},
+#     5: {'surgery_type': 3,
+#         'pj': surgery[3][1],
+#         'wj': 0.5,
+#         'mi': surgery[3][0]},
+#     6: {'surgery_type': 3,
+#         'pj': surgery[3][1],
+#         'wj': 0.3,
+#         'mi': surgery[3][0]}, 
+#     7: {'surgery_type': 5,
+#         'pj': surgery[5][1],
+#         'wj': 0.6,
+#         'mi': surgery[5][0]},
+#     8: {'surgery_type': 5,
+#         'pj': surgery[5][1],
+#         'wj': 0.8,
+#         'mi': surgery[5][0]},
+#     9: {'surgery_type': 6,
+#         'pj': surgery[6][1],
+#         'wj': 1,
+#         'mi': surgery[6][0]},
+#     10: {'surgery_type': 5,
+#         'pj': surgery[5][1],
+#         'wj': 0.3,
+#         'mi': surgery[5][0]}
+#     }
+
+# CREATING SELECT BOX
+# import streamlit as st
+
+# J = {}
+
+# def app():
+#     global J
+    
+#     surgery_option = st.selectbox(
+#         'Please pick surgery you are scheduling',
+#         (surgery.keys()))
+
+#     st.write('You selected:', surgery_option)
+#     st.write('This is has a processing time of: ', surgery[surgery_option][1])
+#     s = surgery[surgery_option][0]
+#     st.write('This requires surgeons: ', ' '.join([str(elem) for elem in s]))
+
+#     weight_option = st.selectbox(
+#         'Please select the weight of the surgery',
+#         ('0.1', '0.2', '0.3', '0.4', '0.5', '0.6', '0.7', '0.8', '0.9'))
+
+#     if st.button('add job'):
+#         J = add_job(surgery_option, surgery[surgery_option][1], weight_option, surgery[surgery_option][0])
+#         st.write(len(J))
+
+# if __name__ == "__main__":
+#     app()
+
+import streamlit as st
+
+# Define global dictionary variable
+my_dict = {}
+
+# Function to add to the dictionary
+def add_to_dict(key, value):
+    global my_dict
+    my_dict[key] = value
+
+# Streamlit app
+def app():
+    global my_dict
+    st.write("My Dictionary:", my_dict)
+    key = st.text_input("Enter Key:")
+    value = st.text_input("Enter Value:")
+    if st.button("Add to Dictionary"):
+        add_to_dict(key, value)
+        st.write("Added to Dictionary!")
+
+if __name__ == "__main__":
+    app()
+
+# ORDER JOBS BY PRIORITY - WSPT
+def order_jobs():
     priorities = {}
 
     for job in J.keys():
@@ -34,13 +136,14 @@ def order_jobs(J):
             priority = 1
             priorities[job] = priority
         else:
-            priority = float(J[job]['wj']) / float(J[job]['pj'])
+            priority = J[job]['wj'] / J[job]['pj']
             priorities[job] = priority
 
     ordered_priority = dict(sorted(priorities.items(), key=lambda x:x[1], reverse = True))
-    return ordered_priority
+    ordered_priority
 
-def assign_machines(ordered_priority, J):
+# ASSIGN JOBS TO MACHINES
+def assign_machines():
     Mi = {}
     for m in range(1, M+1):
         Mi[m] = []
@@ -55,9 +158,9 @@ def assign_machines(ordered_priority, J):
 
         Mi[machine_assignment].append(job)
         J[job]['assigned_machine'] = machine_assignment
-    return J
 
-def schedule_rooms(J, ordered_priority):
+# SCHEDULING TO ROOMS
+def schedule_rooms():
     Rk = {} #room scheduling object 
     room_available_at = [] # when is room (index) available 
     machines_in_service = [] # what machines (value) are in what room (index)
@@ -169,9 +272,12 @@ def schedule_rooms(J, ordered_priority):
 
         t = next_time_check
 
-    return Rk
+    Rk
 
-def plot(Rk):
+# PLOT
+def plot():
+    import matplotlib.pyplot as plt
+
     # Define chart parameters
     chart_title = "Schedule"
     bar_height = 0.4
@@ -207,34 +313,3 @@ def plot(Rk):
     xmin = 0
     xmax = 60
     ax.set_xlim(xmin, xmax)
-
-    st.pyplot(fig)
-
-def app():
-    if 'jobs' not in st.session_state:
-        st.session_state.jobs = {}
-
-    surgery_option = st.selectbox('Please pick surgery you are scheduling', (surgery.keys()))
-
-    st.write('You selected:', surgery_option)
-    st.write('This is has a processing time of: ', surgery[surgery_option][1])
-    s = surgery[surgery_option][0]
-    st.write('This requires surgeons: ', ' '.join([str(elem) for elem in s]))
-
-    weight_option = st.selectbox(
-        'Please select the weight of the surgery',
-        ('0.1', '0.2', '0.3', '0.4', '0.5', '0.6', '0.7', '0.8', '0.9', '1'))
-
-    if st.button('add job'):
-        st.session_state.jobs = add_job(surgery_option, surgery[surgery_option][1], weight_option, surgery[surgery_option][0], st.session_state.jobs)
-        st.write(st.session_state.jobs)
-
-    if st.button('schedule jobs'):
-        ordered_priority = order_jobs(st.session_state.jobs)
-        J = assign_machines(ordered_priority, st.session_state.jobs)
-        Rk = schedule_rooms(J, ordered_priority)
-        plot(Rk)
-
-
-if __name__ == "__main__":
-    app()
