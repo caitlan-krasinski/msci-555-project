@@ -1,5 +1,6 @@
 import streamlit as st
 import matplotlib.pyplot as plt
+import pandas as pd
 
 # DATA SETUP
 M = 4
@@ -13,6 +14,13 @@ surgery = {1: [[1,2], 5],
             5: [[2,3], 3],
             6: [[1], 8] }
 
+surgery_names = {'Rhinoplasty': 1,
+                'Botox injection': 2,
+                'Blepharoplasty': 3,
+                'Chin Augmentation': 4,
+                'Liposuction': 5,
+                'Craniofacial/Reconstructive': 6}
+
 def add_job(surgery_type, pj, wj, mi, J):
     if not J:
         J[1] = {'surgery_type': surgery_type,
@@ -25,7 +33,21 @@ def add_job(surgery_type, pj, wj, mi, J):
                     'wj': wj,
                     'mi': mi}
     return J
-        
+
+def add_clean_job(surgery_type, pj, wj, mi, J):
+    if not J:
+        J[1] = {'Surgery Type': surgery_type,
+                'Processing Time': pj,
+                'Weight': wj,
+                'Required Surgeon(s)': mi}
+    else:
+        J[len(J)+1] = {'Surgery Type': surgery_type,
+                    'Processing Time': pj,
+                    'Weight': wj,
+                    'Required Surgeon(s)': mi}
+    return J
+
+# ORDER JOBS BY PRIORITY - WSPT        
 def order_jobs(J):
     priorities = {}
 
@@ -40,6 +62,7 @@ def order_jobs(J):
     ordered_priority = dict(sorted(priorities.items(), key=lambda x:x[1], reverse = True))
     return ordered_priority
 
+# ASSIGN JOBS TO MACHINES
 def assign_machines(ordered_priority, J):
     Mi = {}
     for m in range(1, M+1):
@@ -57,6 +80,7 @@ def assign_machines(ordered_priority, J):
         J[job]['assigned_machine'] = machine_assignment
     return J
 
+# SCHEDULING TO ROOMS
 def schedule_rooms(J, ordered_priority):
     Rk = {} #room scheduling object 
     room_available_at = [] # when is room (index) available 
@@ -171,6 +195,7 @@ def schedule_rooms(J, ordered_priority):
 
     return Rk
 
+# PLOT
 def plot(Rk):
     # Define chart parameters
     chart_title = "Schedule"
@@ -212,22 +237,32 @@ def plot(Rk):
 
 def app():
     if 'jobs' not in st.session_state:
-        st.session_state.jobs = {}
+        st.session_state.jobs = {} # ensures that the jobs are remembered through a user's session https://docs.streamlit.io/library/advanced-features/session-state
+    if 'clean_jobs' not in st.session_state:
+        st.session_state.clean_jobs = {} # for a readable front end
 
-    surgery_option = st.selectbox('Please pick surgery you are scheduling', (surgery.keys()))
+    st.title('MSCI 555 - Plastic Surgery Scheduling')
+
+    surgery_option = st.selectbox('Please pick surgery you are scheduling', (surgery_names.keys()))
 
     st.write('You selected:', surgery_option)
-    st.write('This is has a processing time of: ', surgery[surgery_option][1])
-    s = surgery[surgery_option][0]
-    st.write('This requires surgeons: ', ' '.join([str(elem) for elem in s]))
+    st.write('This is has a processing time of: ', surgery[surgery_names[surgery_option]][1])
+    mi = surgery[surgery_names[surgery_option]][0]
+    if len(mi) == 1:
+        st.write('This requires surgeon: ', ', '.join([str(elem) for elem in mi]))
+    else:
+        st.write('This requires one of the following surgeons: ', ', '.join([str(elem) for elem in mi]))
 
     weight_option = st.selectbox(
         'Please select the weight of the surgery',
         ('0.1', '0.2', '0.3', '0.4', '0.5', '0.6', '0.7', '0.8', '0.9', '1'))
 
     if st.button('add job'):
-        st.session_state.jobs = add_job(surgery_option, surgery[surgery_option][1], weight_option, surgery[surgery_option][0], st.session_state.jobs)
-        st.write(st.session_state.jobs)
+        st.session_state.jobs = add_job(surgery_names[surgery_option], surgery[surgery_names[surgery_option]][1], weight_option, mi, st.session_state.jobs)
+        st.session_state.clean_jobs = add_clean_job(surgery_option, surgery[surgery_names[surgery_option]][1], weight_option, mi, st.session_state.clean_jobs)
+    
+    df = pd.DataFrame(st.session_state.clean_jobs) 
+    st.table(df)
 
     if st.button('schedule jobs'):
         ordered_priority = order_jobs(st.session_state.jobs)
