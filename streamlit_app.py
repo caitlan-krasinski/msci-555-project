@@ -112,7 +112,7 @@ def schedule_rooms(J, ordered_priority):
             if room_available_at[r-1] <= t:
 
                 # remove sergeons from room if they are done prev surgery 
-                machine_available_at = [t if x <= t else x for x in machine_available_at]
+                #machine_available_at = [t if x <= t else x for x in machine_available_at]
                 machines_in_service = [0 if machine_available_at[machines_in_service.index(x)] <= t else x for x in machines_in_service]
                 
                 # next patient 
@@ -123,25 +123,8 @@ def schedule_rooms(J, ordered_priority):
                     # accept job
                     job = candidate_job 
                 
-                    # add surgeon start and end times to room list 
-                    Rk[r].append({'job': job, 
-                        'machine': J[job]['assigned_machine'],
-                        'start': t, 
-                        'end': t + J[job]['pj']
-                        })
-
-                    room_available_at[r-1] = t + J[job]['pj'] + 0.5
-                    machines_in_service[r-1] = J[job]['assigned_machine']
-                    machine_available_at[r-1] = t + J[job]['pj']
-                    next_time_check = min(room_available_at)
-
-                    if t + J[job]['pj'] + 0.5 <= 12:
-                        time_in_day[r-1] = t + J[job]['pj'] + 0.5
-                    else:
-                        time_in_day[r-1] = 0
-
-                    if t + J[job]['pj'] + 0.5 < next_time_check:
-                        next_time_check = t + J[job]['pj'] + 0.5
+                    # schedule job and update lists
+                    room_available_at, machines_in_service, machine_available_at, next_time_check, time_in_day, Rk = schedule_job(r, job, room_available_at, machines_in_service, machine_available_at, next_time_check, time_in_day, Rk, J, t)
                         
                     remaining_jobs.pop(job)
                     if len(remaining_jobs) == 0:
@@ -149,33 +132,43 @@ def schedule_rooms(J, ordered_priority):
             
                 else:
 
-                    candidate_job = None 
-                    for job in remaining_jobs.keys():
-                        if time_in_day[r-1] + J[job]['pj'] + 0.5 <= 12 and J[job]['assigned_machine'] not in machines_in_service:
-                            candidate_job = job
-                            
-                    if candidate_job:
-        
-                        job = candidate_job 
-
-                        Rk[r].append({'job': job, 
-                        'machine': J[job]['assigned_machine'],
-                        'start': t, 
-                        'end': t + J[job]['pj']
-                        })
-
-                        room_available_at[r-1] = t + J[job]['pj'] + 0.5
-                        machines_in_service[r-1] = J[job]['assigned_machine']
-                        machine_available_at[r-1] = t + J[job]['pj']
-                        next_time_check = min(room_available_at)
-
-                        if t + J[job]['pj'] + 0.5 <= 12:
-                            time_in_day[r-1] = t + J[job]['pj'] + 0.5
+                    if J[candidate_job]['assigned_machine'] in machines_in_service: # if surgeon busy - check if another applicable one is free
+                        print(candidate_job)
+                        if len(set(J[candidate_job]['mi']) - set(machines_in_service)) > 0: # check if another applicable one is free
+                            J[candidate_job]['assigned_machine'] = list(set(J[candidate_job]['mi']) - set(machines_in_service))[0]
+    
                         else:
-                            time_in_day[r-1] = 0
+                            candidate_job = None 
+                            for job in remaining_jobs.keys():
+                                if time_in_day[r-1] + J[job]['pj'] + 0.5 <= 12 and J[job]['assigned_machine'] not in machines_in_service:
+                                    candidate_job = job
+                                    break
+                    elif time_in_day[r-1] + J[candidate_job]['pj'] +  0.5 <= 12:
 
-                        if t + J[job]['pj'] + 0.5 < next_time_check:
-                            next_time_check = t + J[job]['pj'] + 0.5
+                        # see if there is another room that can hold it
+                        for r2 in Rk.keys():
+                            if time_in_day[r2-1] + J[candidate_job]['pj'] +  0.5 <= 12:
+                                job = candidate_job 
+    
+                                # schedule job and update lists 
+                                room_available_at, machines_in_service, machine_available_at, next_time_check, time_in_day, Rk = schedule_job(r2, job, room_available_at, machines_in_service, machine_available_at, next_time_check, time_in_day, Rk)
+                                remaining_jobs.pop(job)
+                                if len(remaining_jobs) == 0:
+                                    break
+                    else: # see if there is a diff job to use
+                        candidate_job = None
+                        for job in remaining_jobs.keys():
+                            if time_in_day[r-1] + J[job]['pj'] + 0.5 <= 12 and J[job]['assigned_machine'] not in machines_in_service:
+                                candidate_job = job
+                    if candidate_job:
+
+                         # machine_available_at = [t if x <= t else x for x in machine_available_at]
+                        machines_in_service = [0 if machine_available_at[machines_in_service.index(x)] <= t else x for x in machines_in_service]
+
+                        job = candidate_job
+
+                        # schedule job and update lists
+                        room_available_at, machines_in_service, machine_available_at, next_time_check, time_in_day, Rk = schedule_job(r, job, room_available_at, machines_in_service, machine_available_at, next_time_check, time_in_day, Rk, J, t)
                             
                         remaining_jobs.pop(job)
                         if len(remaining_jobs) == 0:
@@ -194,6 +187,30 @@ def schedule_rooms(J, ordered_priority):
         t = next_time_check
 
     return Rk
+
+def schedule_job(r, job, room_available_at, machines_in_service, machine_available_at, next_time_check, time_in_day, Rk, J, t):
+    Rk[r].append({'job': job, 
+                    'machine': J[job]['assigned_machine'],
+                    'start': t, 
+                    'end': t + J[job]['pj']
+                    })
+
+    room_available_at[r-1] = t + J[job]['pj'] + 0.5
+    machines_in_service[r-1] = J[job]['assigned_machine']
+    machine_available_at[r-1] = room_available_at[r-1] - 0.5
+
+    next_time_check = min(room_available_at)
+
+    if t + J[job]['pj'] + 0.5 <= 12:
+        time_in_day[r-1] = t + J[job]['pj'] + 0.5
+    else:
+        time_in_day[r-1] = 0
+
+    if t + J[job]['pj'] + 0.5 < next_time_check:
+        next_time_check = t + J[job]['pj'] + 0.5
+
+
+    return room_available_at, machines_in_service, machine_available_at, next_time_check, time_in_day, Rk
 
 # PLOT
 def plot(Rk):
